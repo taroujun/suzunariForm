@@ -1,303 +1,245 @@
-function doGet(e) {
-
-
-  var settings = sheetToJson.loadSheet(e); // sheetToJson Library key MqZYQoF12KAefOpV0V0EPVv2sGzPh2OFS
-  
-  var container = loadLibrary(settings);
-     
-  return container.evaluate();//html.evaluate();
-}
-
-
-function loadLibrary(settings) {
-  if(settings.main.libraryName && settings.main.libraryName !== 'Suzunari' && settings.main.libraryName !== 'suzunari'){
-  var lib = libraryFanc("suzunariMain",settings.main.libraryName);
-  } else { 
-  var lib = libraryFanc("suzunariMain","");
-  };
-
-  var main = lib(settings);
-  var container = main.createContainer(settings);
-  var count = {};
- 
-  for (var i = 0; i < settings.librarys.length; i++){
-    if(!settings.librarys[i].libraryName || settings.librarys[i].libraryName === 'Suzunari' || settings.librarys[i].libraryName === 'suzunari') {
-    var name = "";
-    } else {
-    var name = settings.librarys[i].libraryName;
-    }    
-    count[settings.librarys[i].libraryName] = counter.call(count,settings.librarys[i].libraryName);
-    lib = libraryFanc("generateSuzunari",name,4);
-    lib = lib(name,i,count[settings.librarys[i].libraryName],settings);
-    container.addData(lib.content,i);
-  };
-  
- return container;
-}
-
-function suzunariMain(settings){
-
-  SuperSuzunari.prototype.createContainer = function(settings) {
-  var container = new suzunariLayout.SuzunariContener(settings);
-  container.footer = settings.main.footer;
-  return container;
-  };
-  SuperSuzunari.prototype.container = {};
-  return new SuperSuzunari(settings.main.libraryName,"main",settings,1);
-
-}
-
 function generateSuzunari(name,libraryNo,count,settings) {
 
-  SuperSuzunari.prototype = Object.create(suzunariLayout.SuzunariLayout.prototype, {value: {constructor: SuperSuzunari}});
-
-  var suzunari = new SuperSuzunari(name,libraryNo,count);   
-
-  suzunari.contentFromSetting(settings.librarys[libraryNo]);
+  SuzunariForm.prototype = Object.create(suzunari.SuperSuzunari.prototype, {value: {constructor: SuzunariForm}});
   
-  return suzunari;
+  var suzunariForm = new SuzunariForm(name,libraryNo,count);
+  
+  suzunariForm.addOutputFromFile(['plugins','pluginCss']);
+  
+  suzunariForm.contentFromSetting(settings.librarys[libraryNo]);
+
+  return suzunariForm;
+
 }
 
 function suzunariCatchRequest(req){
-  return 'suzunari'
+  submitForm(req);
+  return JSON.stringify(getColumnValues(req.lib.target.SpreadsheetId,'シート11',3,2,4));//req.data[req.lib.parts[1].name];//JSON.stringify(req.data);
 }
 
-function SuperSuzunari(name,libraryNo,count,layout,pages) {
-  //var layoutLibrary = libraryCall('SuzunariLayout','suzunariLayout',2);
-  //layoutLibrary(this,layout);
-  suzunariLayout.SuzunariLayout.call(this,layout);
+function submitForm(req){
+  var parts = req.lib.parts;
+  var form = req.data;
+  var ary = [];
+    for (var i = 0; i < parts.length; i++){
+      switch(parts[i].widgets){
+          case "rowId":
+          case "rowID":
+          if(req.lib.target.offset){
+            ary[i] = "=row()-" + req.lib.target.offset;
+          }else{
+            ary[i] = "=row()"
+          };
+          break;
+          case 'timeStamp':
+            ary[i] = new Date();
+          break;
+          case "userId" :
+            ary[i] = suzunari.getUserId();
+          break;
+          case "userEmail" :
+            ary[i] = suzunari.getUserEmail();
+          break;
+          default:
+            ary[i] = form[parts[i].name];
+          break;
+      };
+  };
 
-  // propety
+  writeSpreadsheet(req.lib.target.SpreadsheetId,req.lib.target.sheetName,ary,req.lib.target.offset + 1,true);
+}
 
-  this.libraryName = name;       // libraryNo　リクエスト次にも使える
-  this.libraryNo = libraryNo;    // libraryNo　リクエスト次にも使える
-  this.count = {library: count}; // htmlの重複を回避する為のカウンタ,一時保管場所
-  this.content = {pageDiv:[]};             // htmlコンテンツの入れ物
+function writeSpreadsheet(ssId,sheetName,data,target,insert){ //insert　インサートで挿入か書き換えを指定
+  var sheet = SpreadsheetApp.openById(ssId).getSheetByName(sheetName);
+  var ary = [];
+  var row = sheet.getLastRow() +1;
+  ary[0] = data;
+  if(target){ row = target };
+  if(target && insert){ sheet.insertRowBefore(target) };
+  sheet.getRange(row,1,1,ary[0].length).setValues(ary);
+};
+
+function getColumnValues(ssId,sheetName,columnNo,startRow,endRow){
+  var sheet = SpreadsheetApp.openById(ssId).getSheetByName(sheetName);
+  var start = startRow;
+  var end = endRow + 1;
+  var ary = [];
+  if(!startRow){start = 1};
+  if(!endRow){end = sheet.getLastRow() +1;};
+  var val = sheet.getRange(start,columnNo,end-start,1).getValues();
+  for (var i = 0; i < val.length; i++){
+    ary.push(val[i][0]);
+  };
+  return ary;
+}
+
+function SuzunariForm (name,libraryNo,count,layout,pages){
+
+  suzunari.SuperSuzunari.call(this,name,libraryNo,count);
   
-  // function
-  
-  this.catchRequest = function(req) { return ""}; // google Script run requestLibrary();
-
-  this.response = function(req) { return ""}; // google Script run requestLibrary();
-
-  this.addOutputFromFile = function(htmlName) {
-  var outputFromFile = libraryFanc('libraryOutputFromFile',this.libraryName);
-    if(Object.prototype.toString.call(htmlName) === '[object Array]') {
-      for (var i = 0; i < htmlName.length; i++){
-        this.content[htmlName[i]] = outputFromFile(htmlName[i]);
+  this.defaultForm = function(setting,target,pages,pageNo) {
+    var prop = {        
+      libraryName : this.libraryName,
+      libraryNo   : this.libraryNo,
+      target      : target,
+      pageNo      : pageNo,
+      formSubmit  : this.formSubmitButton(setting,target,pages,pageNo),
+      formCansel  : this.formCanselButton(setting,target,pages),
+      formContent : this.formContent(setting,target),
+      libraryPage : this.listPageNo(pages.defaultForm[target])
       }
-    } else {
-    this.content[htmlName] = outputFromFile(htmlName);  
-  }
-}
-      
-  this.liblaryTemplateFromFile = function(htmlName,obj) {
-    var TemplateFromFile = libraryFanc('libraryTemplateFromFile',this.libraryName);
-    var html = TemplateFromFile(htmlName);
-        if(obj) {
-          for(var key in obj) {
-            html[key] = obj[key];
-          }
-        } else {
-        html.libraryName = this.libraryName;
-        html.libraryNo = this.libraryNo;
-        html.count = this.count.library;
-        };
-    return html.evaluate().getContent();
+//      this.ifAny('defaultFrom'+ target + this.libraryNo,target,this.liblaryTemplateFromFile('defaultForm',prop));
+ //     this.addPage(target,pageNo,this.liblaryTemplateFromFile('defaultForm',prop));
+//      this.ifAny('defaultFroma'+ target + this.libraryNo,'javascript',"function submitForm(ret){ alert(ret)};");
+    return this.liblaryTemplateFromFile('defaultForm',prop);
   }
   
-  this.setContent = function (obj){
-    this.content = obj;
+  this.formSubmitButton = function(setting,target,pages,pageNo){
+    var buttonID = this.libraryName + this.libraryNo + target +'-';
+    var btn = "";
+    var script = ""
+    btn += '<button type="submit" class="btn-success btn-lg navbar-btn btn-' + this.libraryName + this.libraryNo + '-' + pageNo + '" value="Exec"';
+    btn += 'onclick="pageCanger(' + 0 + ')">';
+    btn += '<span class="glyphicon glyphicon-ok-circle"></span><b>OK</b>';
+    btn += '</button>';
+//    btn += '<a>' + JSON.stringify(setting.form) + '</a>'
+    script += '$(".btn-' + this.libraryName + this.libraryNo + '-' + pageNo +'").on("click",function(){';
+    script += 'google.script.run.withSuccessHandler(submitForm).requestLibrary(castRequest($("#defaultForm-' + target + '-' + this.libraryNo + '-' + pageNo + '").serializeObject(),3))';
+    script += '});';
+    this.ifAny('SubmitButton'+ target + this.libraryNo,'jqueryIni',script);
+  return btn;
   }
   
-  this.addContent = function (obj){
-    orInsert.call(this.content,obj);
+  this.formCanselButton = function(setting,target,pages){
+    var cbtn = "";
+    cbtn += '<button type="button" class="btn-info btn-lg navbar-btn" value="Exec" onclick="pageCanger(0);">';
+    cbtn += '<span class="glyphicon glyphicon-ban-circle"></span><b>Cansel</b>';
+    cbtn += '</button>';
+    return cbtn;
   }
   
-  this.addCount = function (obj){
-    orInsert.call(this.count,obj);
+  this.formContent = function (setting,target){
+  
+ //   var form = '<div class="row"><div class="w-size col-sm-6"><div class="form-group">';
+    var form = "";
+ //   form += '<div class="container">';
+    form += this.searchParts(setting.parts,"widgets",setting,'form');
+ //   form += '</div>';
+    return form;
   }
   
-  this.searchFunc = function(search,arg1,arg2,arg3,arg4,arg5,arg6,arg7){ // 引数7個まで
-    var libfunc = libraryCall(search,this.libraryName,7);
-    var others = libraryCall(search,"",7);    
-      if(this[search] !== undefined) {
-        return this[search](arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-      }else if(libfunc !== undefined) {
-        return libfunc(this,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
-      }else if(others !== undefined) {
-        return others(this,arg1,arg2,arg3,arg4,arg5,arg6,arg7);
+  this.addLabel = function (hid,title,comment) {
+  if(!hid) {hid = ""};
+  if(!title){title = ""};
+  if(!comment){comment = ""};
+  return '<div class="row form-label" type="' + hid + '"><label class="control-label">' + title + '</label><p>' + comment + '</p></div>';
+  }
+  
+  this.castElement = function(parts){
+    var element = ""
+    for(var key in parts){
+      if(key !== 'widgets' && key !== 'tag' && key !== 'title' && key !== 'comment' && key !== 'data') {
+        element += " " + key + '="' + parts[key] + '"';
+      }
+     }
+    return element;
+  }
+  
+  this.rowId = function (parts,partsNo,setting,target){
+    return this.input(parts,partsNo,setting,target);
+  }
+  
+  this.datepicker = function (parts,partsNo,setting,target){
+    var part = ""
+//    part += '<div class="row"><div class="row w-size"><div class="form-group">';
+    part += this.addLabel(parts.type,parts.title,parts.comment);
+    part += '<div class=\'input-group date\' id="' + parts.id + 'picker">'
+    part += '<input' + this.castElement(parts) + '/>';
+    part += '<span class="input-group-addon">';
+    part += '<span class="glyphicon glyphicon-calendar"></span>';
+    part += '</span>';
+    part += '</div>'
+  //  part += '</div></div></div>';
+    var picker =  "";
+    picker += '$("#' + parts.id + '").datetimepicker({locale:"ja",format:"LL",inline:true,sideBySide:true});';
+    picker += '$("#' + parts.id + '").val("");';
+    this.ifAny('piccker' + parts.id,'jqueryIni',picker);
+    return part;    
+  }
+
+  this.combobox = function (parts,partsNo,setting,target){
+    var combo = ""
+    var li = parts.data;
+    li = li.split(",")
+  //  combo += '<div class="row"><div class="row w-size"><div class="form-group">';
+    combo += this.addLabel(parts.type,parts.title,parts.comment);
+      combo += '<div class="dropdown">'
+      combo += '<input' + this.castElement(parts) + ' data-toggle="dropdown" />';
+      combo += '<ul id="' + parts.id + '_ul" class="dropdown-menu col-xs-12">';
+      for (var i = 0; i < li.length; i++){
+        combo += '<li ><a class="dropDownListItem" href="javascript:;" data-target-name="' + parts.id +'" data-target-val="'
+        combo += li[i] + '" style="white-space: normal;">' + li[i] + '</a></li>';
       };
-  }  
-    
-  this.searchParts = function(ary,key,arg1,arg2,arg3,arg4,arg5){ // ５個まで
-    var val = ""
-    for (var i = 0; i < ary.length; i++){
-      if(ary[i][key]){
-        val += this.searchFunc(ary[i][key],ary[i],i,arg1,arg2,arg3,arg4,arg5);
-      };
-    };
-    return val;
-  }
+      combo += '</ul>'
+      combo += '</div>';
+  //  combo += '</div></div></div>';
+    var jvs = "";
+    jvs += '$(".dropDownListItem").click(function(e) {';
+    jvs += 'var name = e.currentTarget;';
+    jvs += '$("#" + name.getAttribute("data-target-name")).val(name.getAttribute("data-target-val")); ';
+    jvs += '});';
+    this.ifAny('combo','jqueryIni',jvs);
 
-  this.ifAny = function(key1,key2,val,count){
-    if(this.count[key1] === undefined && !count){
-      this.count[key1] = 1;
-      appendContent.call(this.content,key2,val);
-    } else if(this.count[key1] === undefined && count){
-      this.count[key1] = count;
-      appendContent.call(this.content,key2,val);
-    } else if(this.count[key1] !== undefined && count){
-      this.count[key1] = count;
-    } else {
-      this.count[key1] ++
-    };
+
+    return combo; //JSON.stringify(setting.parts[partsNo].data);    
   }
   
-}
-
-SuperSuzunari.prototype = Object.create(suzunariLayout.SuzunariLayout.prototype, {value: {constructor: SuperSuzunari}});
-
-function addArrayObject(target,index,key,val){  //call thisObjectはarrayObuject
-  this[target] = this[target] || [];
-  this[target][index] = this[target][index] || {};
-    if(this[target][index][key] !== undefined){
-      this[target][index][key] += val;
-    }else{
-      this[target][index][key] = val;
-    };
-}
-
-function addArrayObject2(index,key,val){  //call thisObjectはarrayObuject
-//  this = this || [];
-  this[index] = this[index] || {};
-//  this[index][key] = this[index][key] + val || val;
-    if(this[index][key] !== undefined){
-      this[index][key] += val;
-    }else{
-      this[index][key] = val;
-    };
-}
-
-function combineArrayObject(aryObj1,aryObj2){
-  if(aryObj1.length > aryObj2.length){
-    var len = aryObj1.length;
-  }else{
-    var len = aryObj2.length;
+  this.autocomp = function (parts,partsNo,setting,target){
+    var li = parts.data;
+    li = li.split(",")
+    var jvs = '$("#' + parts.id + '").typeahead({source:' + JSON.stringify(li) + '});';
+    this.ifAny('autocomp'+ parts.id,'jqueryIni',jvs);
+    return this.input(parts,partsNo,setting,target);
   }
-  for(var i = 0; i < len; i++){
-    if(aryObj2[i]){
-      aryObj1[i] = aryObj1[i] || {};
-      for(var key in aryObj2[i]){
-        if(aryObj1[i][key] !== undefined){
-          aryObj1[i][key] += aryObj2[i][key];
-        }else{
-          aryObj1[i][key] = aryObj2[i][key];
-        };
+
+  this.select = function (parts,partsNo,setting,target){
+    var li = parts.data;
+    li = li.split(",")
+    var select = "";
+    select += this.addLabel(parts.type,parts.title,parts.comment);
+    select += '<select' + this.castElement(parts) + '>';
+      for (var i = 0; i < li.length; i++){
+       select += '<option value="' + li[i] +'" style="white-space: normal;">' + li[i] + '</option>';
       };
-    };
-  };
-  return aryObj1;
-}
-
-function counter(name) {
- if(this[name] !== undefined) {
- return this[name] +1
- } else {
- return 1;
- };
-}
-
-function libraryFanc(func,opt_library,opt_args) { // 第一引数が関数名、関数のあるライブラリ、引数のいくつあるか。関数がないとundefinedを返す。
-  var arg = "arg"
-  var lib ="";
-  if(opt_library) {
-  var lib = opt_library + '.'
+   select += '</select>'
+    return select;    
   }
-  if(opt_args) {
-    for (var i = 1; i < opt_args; i++){
-      arg += ",arg" + i;
-    };
-  };
-  var t = 'return typeof(' + lib  + func + ')'
-  var t2 = Function.call("",t);
-  if(t2() == 'function') {
-    var f = 'return function(' + arg + ') { return ' + lib  + func + '(' + arg + ');}';
-    return Function.call("",f)();
-  }else{
-  return undefined;
+
+ this.input = function (parts,partsNo,setting,target){
+   var input = "";
+   input += this.addLabel(parts.type,parts.title,parts.comment);
+   input += '<input' + this.castElement(parts) + '/>';
+    return input;    
+  }
+
+  this.textarea = function (parts,partsNo,setting,target){
+   var texta = "";
+   texta += this.addLabel(parts.type,parts.title,parts.comment);
+   texta += '<textarea' + this.castElement(parts) + 'rows="5"></textarea>';
+    return texta;    
+  }
+  this.timeStamp = function (parts,partsNo,setting,target){
+    return "";
+  }
+  this.userId = function (parts,partsNo,setting,target){
+    return "";
+  }
+  this.userEmail = function (parts,partsNo,setting,target){
+    return "";
   }
 }
 
-function libraryCall(func,opt_library,opt_args) { // 第一引数が関数名、関数のあるライブラリ、引数のいくつあるか。関数がないとundefinedを返す。
-  var arg = "thisObj,arg"
-  var lib ="";
-  if(opt_library) {
-  var lib = opt_library + '.'
-  }
-  if(opt_args) {
-    for (var i = 1; i < opt_args; i++){
-      arg += ",arg" + i;
-    };
-  };
-  var t = 'return typeof(' + lib  + func + ')'
-  var t2 = Function.call("",t);
-  if(t2() == 'function') {
-    var f = 'return function(' + arg + ') { return ' + lib  + func + '.call(' + arg + ');}';
-    return Function.call("",f)();
-  }else{
-  return undefined;
-  }
-}
-
-function requestLibrary(req) {
-　　var  lib = libraryFanc("suzunariCatchRequest",castLibName(req.libName),4);
-　　return lib(req);
-}
-
-function castLibName(name){
-  if(!name || name === 'Suzunari' || name === 'suzunari') {
-    return  "";
-  } else {
-    return name;
-  };    
-}
-
-function getUserId(){
-  return Session.getActiveUser().getUserLoginId();
-}
-
-function getUserEmail(){
-  return Session.getActiveUser().getEmail();
-}
-
-function orInsert(obj,key,val){
-  if(key && val){
-    if(this[key] !== undefined){
-      this[key] += val;
-    } else {
-      this[key] = val;
-    }
-  } else {
-    if(obj){
-      for(var key1 in obj){
-        if(this[key1] !== undefined){
-          this[key1] += obj[key1];
-        } else {
-          this[key1] = obj[key1];
-        };  
-      };
-    };
-  };
-}
-
-function appendContent(key,val){
-  if(this[key] !== undefined){
-    this[key] += val;
-  } else {
-    this[key] = val;
-  }
-}
+  SuzunariForm.prototype = Object.create(suzunari.SuperSuzunari.prototype, {value: {constructor: SuzunariForm}});
 
 function libraryOutputFromFile(name) {
    return HtmlService.createHtmlOutputFromFile(name).getContent();

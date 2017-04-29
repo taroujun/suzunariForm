@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ja">
+<html>
+<head>
+
+  <meta charset="UTF-8">
+
+  <base target="_top">
+    
+  <? output.append(this.css); ?>
+  
+  <? output.append(this.javascript); ?>
+  
+  <script>
+  function initializeJavascript(settings,data) {
+  
+  <? output.append(this.jqueryIni); ?>
+    
+  }
+  </script>
+
+<script>
+  $(function() {
+  
+  // ここでしか、データを渡せない。あとはスクリプトＲＵＮ。
+  
+  var json = <?= settings ?>;
+  var settings = $.parseJSON(json);
+  var jsonData = <?= data ?>;
+  var data = $.parseJSON(jsonData);
+
+  initializeJavascript(settings,data);       
+  
+    });
+</script>
+
+  
+</head>
+<body>
+  <div class="container-fluid p0m0">
+    <div id="main-header">
+    <? output.append(this.header); ?>
+    </div>
+    <div id="main-body">
+    <? output.append(this.body); ?>
+    </div>
+    <div id="main-footer">
+    <? output.append(this.footer); ?>
+    </div>
+  </div>
+</body>
+</html>
