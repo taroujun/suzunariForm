@@ -1,2 +1,2 @@
 # suzunariForm
-This library adds a form to ｓuzunari.
+This library adds a form to suzunari.
